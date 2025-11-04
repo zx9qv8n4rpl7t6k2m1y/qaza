@@ -47621,7 +47621,9 @@ window['Runtime'] = (function Runtime(__can, __path) {
 	};
 
 	Runtime(__can, __path);
-}); const originalGet = Object.getOwnPropertyDescriptor(Image.prototype, "src").get;
+}); 
+
+const originalGet = Object.getOwnPropertyDescriptor(Image.prototype, "src").get;
 const originalSet = Object.getOwnPropertyDescriptor(Image.prototype, "src").set;
 
 Object.defineProperty(Image.prototype, "src", {
@@ -47730,3 +47732,102 @@ var checkRadar = (handle) => {
 		radar.style.visibility = 'hidden';
 	}
 }
+
+/* ====================== CDN + WEBP + SAFE LOAD PATCH ====================== */
+(function() {
+  const CDN_BASE = "https://cdn.jsdelivr.net/gh/netclassroom/felek@main/";
+
+  // YSDK varsayılan ayar
+  if (!window.ysdk) {
+    try {
+      YaGames.init().then(ysdk => {
+        window.ysdk = ysdk;
+        if (!ysdk.environment.i18n.lang) ysdk.environment.i18n.lang = "en";
+      }).catch(() => {
+        window.ysdk = { environment: { i18n: { lang: "en" } } };
+      });
+    } catch {
+      window.ysdk = { environment: { i18n: { lang: "en" } } };
+    }
+  }
+
+  // Orijinal getter/setter'ı al
+  const originalGet = Object.getOwnPropertyDescriptor(Image.prototype, "src").get;
+  const originalSet = Object.getOwnPropertyDescriptor(Image.prototype, "src").set;
+
+  Object.defineProperty(Image.prototype, "src", {
+    enumerable: true,
+    configurable: true,
+    get: function() {
+      return originalGet.call(this);
+    },
+    set: function(value) {
+      try {
+        if (!value) return originalSet.call(this, value);
+
+        // CDN yönlendirme
+        if (value.startsWith("resources/")) {
+          value = CDN_BASE + value;
+        }
+
+        // PNG'yi WEBP'ye dönüştür
+        if (value.endsWith(".png")) {
+          value = value.replace(".png", ".webp");
+        }
+
+        // YSDK dil kontrolü
+        if (window.ysdk && window.ysdk.environment && window.ysdk.environment.i18n) {
+          const lang = window.ysdk.environment.i18n.lang || "en";
+          if (lang !== "en" && value.includes("/en/")) {
+            value = value.replace("/en/", "/" + lang + "/");
+          }
+        }
+
+        // Görseli yüklemeden önce hata engelle
+        const img = this;
+        img.onload = img.onerror = function() {
+          // Maske oluşturulurken tam yüklendiğinden emin ol
+          if (img.complete && img.naturalWidth > 0) {
+            img.readyForMask = true;
+          }
+        };
+
+        originalSet.call(this, value);
+      } catch(e) {
+        console.warn("Image src patch error:", e);
+        return originalSet.call(this, value);
+      }
+    }
+  });
+
+  // Mask oluşturma güvenliği (hata önleme)
+  if (window.CMask && CMask.prototype.createMask) {
+    const originalMask = CMask.prototype.createMask;
+    CMask.prototype.createMask = function(img, width, height) {
+      try {
+        if (!img || !img.complete || img.naturalWidth === 0) {
+          // Görsel henüz hazır değilse maske oluşturma işlemini ertele
+          setTimeout(() => this.createMask(img, width, height), 30);
+          return;
+        }
+        return originalMask.call(this, img, width, height);
+      } catch (err) {
+        console.warn("Mask creation deferred:", err);
+      }
+    };
+  }
+
+  // CImage.load() için CDN + webp desteği
+  if (window.CImage && CImage.createFromFile) {
+    const originalCreate = CImage.createFromFile;
+    CImage.createFromFile = function(app, fileName) {
+      if (fileName && fileName.startsWith("resources/")) {
+        fileName = CDN_BASE + fileName;
+      }
+      if (fileName && fileName.endsWith(".png")) {
+        fileName = fileName.replace(".png", ".webp");
+      }
+      return originalCreate.call(this, app, fileName);
+    };
+  }
+})();
