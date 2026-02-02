@@ -1,0 +1,521 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Module>
+<ModulePrefs title="Resources" />
+<Content type="html"><![CDATA[
+
+
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8"/>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/z-f3-f1/1@main/style.css"/>
+    <!-- GameMonetize SDK Entegrasyonu -->
+    <script type="text/javascript">
+        window.SDK_OPTIONS = {
+            gameId: "jp112o3o4hzgrnc7zaewjkrfk282pul8",
+            onEvent: function (a) {
+                switch (a.name) {
+                    case "SDK_GAME_PAUSE":
+                        console.log("Oyun duraklatıldı, ses kapatılıyor...");
+                        if (typeof myGameInstance !== 'undefined' && myGameInstance) {
+                            myGameInstance.SendMessage('AudioManager', 'MuteAudio');
+                        }
+                        break;
+                    case "SDK_GAME_START":
+                        console.log("Reklam bitti, oyun devam ediyor...");
+                        if (typeof myGameInstance !== 'undefined' && myGameInstance) {
+                            myGameInstance.SendMessage('AudioManager', 'UnmuteAudio');
+                        }
+                        break;
+                    case "SDK_READY":
+                        console.log("SDK hazır.");
+                        break;
+                }
+            }
+        };
+        (function (a, b, c) {
+            var d = a.getElementsByTagName(b)[0];
+            a.getElementById(c) || (a = a.createElement(b), a.id = c, a.src = "https://cdn.jsdelivr.net/gh/testamalame/sef@main/sedk.js", d.parentNode.insertBefore(a, d));
+        })(document, "script", "gamemonetize-sdk");
+    </script>
+    <style>
+        canvas:focus { outline: none; }
+        html, body {
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: rgba(0,0,0,0);
+            height: 100%;
+        }
+    </style>
+</head>
+<body class="dark">
+    <div id="unity-container" class="unity-desktop">
+        <canvas id="unity-canvas" tabindex="-1"></canvas>
+    </div>
+    <div id="loading-cover" style="display:none;">
+        <div id="unity-loading-bar">
+            <div id="unity-progress-bar-empty" style="display: none;">
+                <div id="unity-progress-bar-full"></div>
+            </div>
+            <div class="spinner"></div>
+        </div>
+    </div>
+    <script>
+        const hideFullScreenButton = "";
+        const buildUrl = "https://cdn.jsdelivr.net/gh/z-f3-f1/1@main/Build";
+        const loaderUrl = buildUrl + "/yandexBrotli.loader.js";
+        const config = {
+            dataUrl: buildUrl + "/yandexBrotli.data.br",
+            frameworkUrl: buildUrl + "/yandexBrotli.framewor.js",
+            streamingAssetsUrl: "StreamingAssets",
+            companyName: "Brain massage",
+            productName: "Supercar Battle Royale",
+            productVersion: "0.0.197"
+        };
+
+        function loadAndMergeFiles(files, callback) {
+            var mergedBlob = [];
+            var loadNextFile = function (index) {
+                if (index < files.length) {
+                    var file = files[index];
+                    fetch(buildUrl + "/" + file)
+                        .then(response => response.arrayBuffer())
+                        .then(data => {
+                            mergedBlob.push(new Uint8Array(data));
+                            loadNextFile(index + 1);
+                        })
+                        .catch(error => console.error('Dosya yüklenemedi:', file, error));
+                } else {
+                    callback(new Blob(mergedBlob));
+                }
+            };
+            loadNextFile(0);
+        }
+
+        var wasmFiles = ["yandexBrotli.wasm.br.part1", "yandexBrotli.wasm.br.part2"];
+        const container = document.querySelector("#unity-container");
+        const canvas = document.querySelector("#unity-canvas");
+        const loadingCover = document.querySelector("#loading-cover");
+        const progressBarEmpty = document.querySelector("#unity-progress-bar-empty");
+        const progressBarFull = document.querySelector("#unity-progress-bar-full");
+        const spinner = document.querySelector('.spinner');
+
+        const canFullscreen = (function () {
+            for (const key of [
+                'exitFullscreen', 'webkitExitFullscreen', 'webkitCancelFullScreen',
+                'mozCancelFullScreen', 'msExitFullscreen'
+            ]) {
+                if (key in document) return true;
+            }
+            return false;
+        }());
+
+        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+            container.className = "unity-mobile";
+        }
+
+        let myGameInstance = null;
+        let isAdShown = false;
+
+        function showAdOnClick() {
+            if (!isAdShown && typeof sdk !== 'undefined' && typeof sdk.showBanner !== 'undefined') {
+                sdk.showBanner();
+                isAdShown = true;
+            }
+        }
+
+        loadAndMergeFiles(wasmFiles, function (mergedWasmBlob) {
+            var mergedWasmFile = URL.createObjectURL(mergedWasmBlob);
+            config.codeUrl = mergedWasmFile;
+            var script = document.createElement("script");
+            script.src = loaderUrl;
+            script.onload = () => {
+                createUnityInstance(canvas, config, (progress) => {
+                    progressBarFull.style.width = 100 * progress + "%";
+                }).then((unityInstance) => {
+                    myGameInstance = unityInstance;
+                    loadingCover.style.display = "none";
+                    // Oyun yüklendiğinde tıklama olayını ekle
+                    canvas.addEventListener('pointerdown', showAdOnClick);
+                    canvas.addEventListener('touchstart', showAdOnClick);
+                }).catch((message) => {
+                    alert(message);
+                });
+            };
+            document.body.appendChild(script);
+        });
+
+        loadingCover.style.background = "url('https://cdn.jsdelivr.net/gh/z-f3-f1/1@main/background.jpg') center / cover";
+        loadingCover.style.display = "";
+        document.addEventListener('contextmenu', event => event.preventDefault());
+
+        function FocusGame() {
+            window.focus();
+            canvas.focus();
+        }
+        window.addEventListener('pointerdown', FocusGame);
+        window.addEventListener('touchstart', FocusGame);
+
+        let StartUnityInstance;
+        let ysdk = null;
+        let environmentData = {
+            language: "en", domain: "default_domain", deviceType: "desktop",
+            isMobile: false, isDesktop: true, isTablet: false, isTV: false,
+            appID: "default_app_id", browserLang: navigator.language || "en",
+            payload: null, promptCanShow: false, reviewCanShow: false,
+            platform: navigator.platform,
+            browser: (function() {
+                let userAgent = navigator.userAgent;
+                if (userAgent.includes("YaBrowser")) return "Yandex";
+                if (userAgent.includes("OPR") || userAgent.includes("Opera")) return "Opera";
+                if (userAgent.includes("Firefox")) return "Firefox";
+                if (userAgent.includes("MSIE") || userAgent.includes("Trident")) return "IE";
+                if (userAgent.includes("Edge")) return "Edge";
+                if (userAgent.includes("Chrome")) return "Chrome";
+                if (userAgent.includes("Safari")) return "Safari";
+                return "Other";
+            })()
+        };
+        
+        let cloudSaves = 'noData';
+        let paymentsData = 'none';
+        let playerData = 'noData';
+        let player = null;
+        let payments = null;
+        let initGame = false;
+        let nowFullAdOpen = false;
+
+        function GetPayments() { console.warn("GetPayments is not implemented"); return Promise.resolve("none"); }
+        function SaveCloud() { console.warn("SaveCloud is not implemented"); }
+        function LoadCloud() { console.warn("LoadCloud is not implemented"); return Promise.resolve("noData"); }
+        function InitPlayer() { console.warn("InitPlayer is not implemented"); return Promise.resolve("noData"); }
+        function FullAdShow() { console.warn("FullAdShow is not implemented"); }
+        function RewardedShow() { console.warn("RewardedShow is not implemented"); }
+        function StickyAdActivity() { console.warn("StickyAdActivity is not implemented"); }
+        function Review() { console.warn("Review is not implemented"); }
+        function PromptShow() { console.warn("PromptShow is not implemented"); }
+        function InitLeaderboards() { console.warn("InitLeaderboards is not implemented"); }
+        function GetLeaderboardScores() { console.warn("GetLeaderboardScores is not implemented"); }
+        function SetLeaderboardScores() { console.warn("SetLeaderboardScores is not implemented"); }
+        function ConsumePurchase() { console.warn("ConsumePurchase is not implemented"); }
+        function ConsumePurchases() { console.warn("ConsumePurchases is not implemented"); }
+        function InitLeaderboard() { console.warn("InitLeaderboard is not implemented"); }
+        function BuyPayments() { console.warn("BuyPayments is not implemented"); }
+
+        try {
+            const script = document.createElement("script");
+            script.src = loaderUrl;
+            script.onload = () => {
+                StartUnityInstance = function () {
+                    createUnityInstance(canvas, config, (progress) => {
+                        spinner.style.display = "none";
+                        progressBarEmpty.style.display = "";
+                        progressBarFull.style.width = `${100 * progress}%`;
+                    }).then((unityInstance) => {
+                        myGameInstance = unityInstance;
+                        loadingCover.style.display = "none";
+                    }).catch((message) => {
+                        console.error("Unity yükleme hatası:", message);
+                    });
+                };
+                StartUnityInstance();
+            };
+            document.body.appendChild(script);
+        } catch (error) {
+            console.error("Başlatma sırasında hata:", error);
+        }
+
+        function InitGame() {
+            try {
+                console.log('Init Game Success');
+                initGame = true;
+                if (nowFullAdOpen === true && myGameInstance != null) {
+                    myGameInstance.SendMessage('YandexGame', 'OpenFullAd');
+                }
+            } catch (error) {
+                console.error("InitGame sırasında hata:", error);
+            }
+        }
+
+        window.addEventListener("unhandledrejection", function(event) {
+            console.warn("Hata es geçildi:", event.reason);
+            event.preventDefault();
+        });
+    </script>
+
+<!-- Interstitial Ad (GameMonetize Style) -->
+<style>
+  /* Full screen dark overlay */
+  #ad-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.60);
+    display: none;
+    z-index: 99998;
+    transition: opacity 0.4s ease-out;
+  }
+
+  #ad-overlay.fade-out {
+    opacity: 0;
+  }
+
+  /* Container: Center of screen, fixed */
+  #ad-container {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 370px;
+    height: 310px;
+    background: rgba(0, 0, 0, 0.90);
+    display: none;
+    z-index: 99999;
+    border-radius: 0;
+    overflow: hidden;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.8);
+    box-sizing: border-box;
+    transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+  }
+
+  #ad-container.fade-out {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+
+  #ad-iframe {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 370px;
+    height: 330px;
+    border: 0;
+    display: block;
+    overflow: hidden;
+    pointer-events: auto;
+    box-sizing: content-box;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  #ad-iframe::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  /* Base button styles */
+  .ad-close-btn {
+    position: absolute;
+    background: #ff4d4d;
+    color: #fff;
+    border: none;
+    padding: 6px 10px;
+    font-size: 14px;
+    font-weight: bold;
+    border-radius: 4px;
+    z-index: 100000;
+  }
+
+  /* Fake close button - clickthrough */
+  #fake-close {
+    cursor: pointer;
+    pointer-events: none; /* Click passes through */
+    opacity: 0.85;
+  }
+
+  /* Real close button - hidden initially */
+  #real-close {
+    cursor: pointer;
+    z-index: 100001;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease-in;
+  }
+
+  #real-close.visible {
+    display: block;
+    opacity: 1;
+  }
+
+  #real-close:hover {
+    background: #ff3333;
+  }
+
+  /* Corner positions */
+  .corner-top-left {
+    top: 6px;
+    left: 8px;
+  }
+  .corner-top-right {
+    top: 6px;
+    right: 8px;
+  }
+  .corner-bottom-left {
+    bottom: 6px;
+    left: 8px;
+  }
+  .corner-bottom-right {
+    bottom: 6px;
+    right: 8px;
+  }
+
+  /* Right mask for scrollbar */
+  #ad-right-mask {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 12px;
+    height: 100%;
+    pointer-events: none;
+    background: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.9));
+    z-index: 99999;
+  }
+
+  /* Mobile adjustments */
+  @media (max-width: 440px) {
+    #ad-container {
+      width: calc(100% - 20px);
+      max-width: 360px;
+    }
+    #ad-iframe {
+      width: 100%;
+      max-width: 360px;
+    }
+  }
+</style>
+
+<!-- Full screen overlay -->
+<div id="ad-overlay"></div>
+
+<!-- Ad container -->
+<div id="ad-container" aria-hidden="true" role="dialog" aria-label="Advertisement">
+  <iframe
+    id="ad-iframe"
+    src="https://script.google.com/macros/s/AKfycbx_xcErv0Hn7MskpaXaC5fZT5vrMuzTiBeaiZtwyJG_IWlFneNR1s5HhoXM6ONRQIf_/exec"
+    width="360px"
+    height="310px"
+    scrolling="no"
+    frameborder="0"
+    sandbox="allow-scripts allow-popups allow-same-origin"
+  ></iframe>
+  <button id="fake-close" class="ad-close-btn">✕</button>
+  <button id="real-close" class="ad-close-btn">Close Ad</button>
+  <div id="ad-right-mask"></div>
+</div>
+
+<script>
+  (function () {
+    const showDelay = 3000; // 3 seconds delay before first show
+    const realCloseDelay = 3000; // 3 seconds before real close appears
+    const reappearDelay = 120000; // 60 seconds before reappearance
+    
+    const adOverlay = document.getElementById('ad-overlay');
+    const adContainer = document.getElementById('ad-container');
+    const fakeClose = document.getElementById('fake-close');
+    const realClose = document.getElementById('real-close');
+
+    // Corner class names
+    const corners = [
+      'corner-top-left',
+      'corner-top-right',
+      'corner-bottom-left',
+      'corner-bottom-right'
+    ];
+
+    // Remove all corner classes from element
+    function clearCorners(element) {
+      corners.forEach(corner => element.classList.remove(corner));
+    }
+
+    // Get random corner
+    function getRandomCorner() {
+      return corners[Math.floor(Math.random() * corners.length)];
+    }
+
+    // Set button to random corner
+    function setRandomCorner(button) {
+      clearCorners(button);
+      button.classList.add(getRandomCorner());
+    }
+
+    function showAd() {
+      // Reset states
+      adOverlay.classList.remove('fade-out');
+      adContainer.classList.remove('fade-out');
+      fakeClose.style.display = 'block';
+      realClose.classList.remove('visible');
+      realClose.style.display = 'none';
+
+      // Set fake button to random corner
+      setRandomCorner(fakeClose);
+
+      // Show overlay and container
+      adOverlay.style.display = 'block';
+      adContainer.style.display = 'block';
+      adContainer.setAttribute('aria-hidden', 'false');
+
+      // After 3 seconds, show real close button and hide fake
+      setTimeout(() => {
+        fakeClose.style.display = 'none';
+        
+        // Set real button to random corner (can be different from fake)
+        setRandomCorner(realClose);
+        
+        realClose.style.display = 'block';
+        // Force reflow for animation
+        realClose.offsetHeight;
+        realClose.classList.add('visible');
+      }, realCloseDelay);
+    }
+
+    function closeAd() {
+      // Fade out animation
+      adOverlay.classList.add('fade-out');
+      adContainer.classList.add('fade-out');
+
+      // After animation, hide completely
+      setTimeout(() => {
+        adOverlay.style.display = 'none';
+        adContainer.style.display = 'none';
+        adContainer.setAttribute('aria-hidden', 'true');
+        
+        // Focus back to game (will be customized later)
+        if (typeof window.focusGame === 'function') {
+          window.focusGame();
+        }
+      }, 400);
+
+      // Schedule reappearance
+      setTimeout(showAd, reappearDelay);
+    }
+
+    // Initial ad show
+    setTimeout(showAd, showDelay);
+
+    // Real close button click
+    realClose.addEventListener('click', closeAd);
+
+    // Expose functions globally for game integration
+    window.showInterstitialAd = showAd;
+    window.closeInterstitialAd = closeAd;
+  })();
+</script>
+
+</body>
+</html>
+
+]]></Content>
+</Module>
